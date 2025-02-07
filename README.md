@@ -14,7 +14,7 @@ Submitted on 7 February 2025
 #### Program files (code)
 Assign3.py
 
-#### Output files \
+#### Output files
 aa
 
 #### Input files/Folder
