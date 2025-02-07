@@ -14,26 +14,28 @@
 
 # Program - QuikEdit
 # This program allows users to upload, manipulate and save edited images 
-# through graphical interface. # It uses Object-Oriented Programming principles, 
+# through graphical interface. It uses Object-Oriented Programming principles, 
 # GUI development using Tkinter, and image processing using OpenCV. 
+
 
 import cv2
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps
 
 class ImageEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("QuikEdit - the fastest image editor")
-        self.root.geometry("1200x700")
+        self.root.title("QuikEdit ~ the fastest image editor")
+        self.root.geometry("1100x600")
 
         # Variables
         self.image = None
         self.cropped_image = None
         self.edited_images = []  # For undo/redo functionality
         self.current_image_index = -1
+        self.zoom_scale = 1.0  # For zoom functionality
 
         # GUI Components
         self.create_widgets()
@@ -51,32 +53,60 @@ class ImageEditorApp:
         self.control_frame = tk.Frame(self.root, bg="lightgray")
         self.control_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        # Buttons
-        self.load_button = tk.Button(self.control_frame, text="Load Image", command=self.load_image)
+        # Button styles for different groups
+        file_button_style = {"bg": "#4CAF50", "fg": "white", "activebackground": "#45a049", "font": ("Arial", 10)}
+        edit_button_style = {"bg": "#2196F3", "fg": "white", "activebackground": "#1e88e5", "font": ("Arial", 10)}
+        filter_button_style = {"bg": "#FF9800", "fg": "white", "activebackground": "#fb8c00", "font": ("Arial", 10)}
+        view_button_style = {"bg": "#9C27B0", "fg": "white", "activebackground": "#8e24aa", "font": ("Arial", 10)}
+        help_button_style = {"bg": "#607D8B", "fg": "white", "activebackground": "#546e7a", "font": ("Arial", 10)}
+
+        # File operations buttons
+        self.load_button = tk.Button(self.control_frame, text="Load Image", command=self.load_image, **file_button_style)
         self.load_button.pack(side=tk.LEFT, padx=5)
 
-        self.crop_button = tk.Button(self.control_frame, text="Crop Image", command=self.start_crop)
+        self.save_button = tk.Button(self.control_frame, text="Save Image", command=self.save_image, **file_button_style)
+        self.save_button.pack(side=tk.LEFT, padx=5)
+
+        # Editing buttons
+        self.crop_button = tk.Button(self.control_frame, text="Crop Image", command=self.start_crop, **edit_button_style)
         self.crop_button.pack(side=tk.LEFT, padx=5)
 
         self.resize_slider = tk.Scale(self.control_frame, from_=10, to=200, orient=tk.HORIZONTAL, label="Resize (%)", command=self.resize_image)
         self.resize_slider.pack(side=tk.LEFT, padx=5)
 
-        self.save_button = tk.Button(self.control_frame, text="Save Image", command=self.save_image)
-        self.save_button.pack(side=tk.LEFT, padx=5)
-
-        self.undo_button = tk.Button(self.control_frame, text="Undo", command=self.undo)
+        self.undo_button = tk.Button(self.control_frame, text="Undo", command=self.undo, **edit_button_style)
         self.undo_button.pack(side=tk.LEFT, padx=5)
 
-        self.redo_button = tk.Button(self.control_frame, text="Redo", command=self.redo)
+        self.redo_button = tk.Button(self.control_frame, text="Redo", command=self.redo, **edit_button_style)
         self.redo_button.pack(side=tk.LEFT, padx=5)
 
-        # Copyright info
-        self.copyright_label = tk.Label(self.root, text="© 2025 QuikEdit. All rights reserved.", bg="lightgray")
-        self.copyright_label.pack(side=tk.BOTTOM, fill=tk.X)
+        # Filter buttons
+        self.monochrome_button = tk.Button(self.control_frame, text="Monochrome", command=lambda: self.apply_filter("monochrome"), **filter_button_style)
+        self.monochrome_button.pack(side=tk.LEFT, padx=5)
 
-        # How-to section
-        self.how_to_label = tk.Label(self.root, text="How-to: Load an image, crop, resize, and save!", bg="lightgray")
-        self.how_to_label.pack(side=tk.BOTTOM, fill=tk.X)
+        self.warm_button = tk.Button(self.control_frame, text="Warm", command=lambda: self.apply_filter("warm"), **filter_button_style)
+        self.warm_button.pack(side=tk.LEFT, padx=5)
+
+        self.cool_button = tk.Button(self.control_frame, text="Cool", command=lambda: self.apply_filter("cool"), **filter_button_style)
+        self.cool_button.pack(side=tk.LEFT, padx=5)
+
+        self.bright_button = tk.Button(self.control_frame, text="Bright", command=lambda: self.apply_filter("bright"), **filter_button_style)
+        self.bright_button.pack(side=tk.LEFT, padx=5)
+
+        # View buttons
+        self.zoom_in_button = tk.Button(self.control_frame, text="Zoom In", command=self.zoom_in, **view_button_style)
+        self.zoom_in_button.pack(side=tk.LEFT, padx=5)
+
+        self.zoom_out_button = tk.Button(self.control_frame, text="Zoom Out", command=self.zoom_out, **view_button_style)
+        self.zoom_out_button.pack(side=tk.LEFT, padx=5)
+
+        # Help button
+        self.how_to_button = tk.Button(self.control_frame, text="How-To Guide", command=self.show_how_to_guide, **help_button_style)
+        self.how_to_button.pack(side=tk.LEFT, padx=5)
+
+        # Copyright info
+        self.copyright_label = tk.Label(self.root, text="© 2023 Image Editor. All rights reserved.", bg="lightgray")
+        self.copyright_label.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Keyboard shortcuts
         self.root.bind("<Control-z>", lambda event: self.undo())
@@ -94,7 +124,10 @@ class ImageEditorApp:
     def display_image(self, image):
         self.canvas.delete("all")
         image = Image.fromarray(image)
-        image.thumbnail((1600, 1000))  # Resize to fit canvas
+        # Apply zoom
+        width, height = image.size
+        new_width, new_height = int(width * self.zoom_scale), int(height * self.zoom_scale)
+        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)  # Updated for Pillow 10+
         self.tk_image = ImageTk.PhotoImage(image)
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_image)
 
@@ -187,6 +220,27 @@ class ImageEditorApp:
 
         self.display_image(filtered_image)
         self.add_to_history(filtered_image)
+
+    def zoom_in(self):
+        self.zoom_scale *= 1.2
+        self.display_image(self.cropped_image if self.cropped_image is not None else self.image)
+
+    def zoom_out(self):
+        self.zoom_scale /= 1.2
+        self.display_image(self.cropped_image if self.cropped_image is not None else self.image)
+
+    def show_how_to_guide(self):
+        instructions = """
+        QuikEdit ~ How-To Guide:
+        1. Load an image using the 'Load Image' button.
+        2. Crop the image by clicking 'Crop Image' and drawing a rectangle.
+        3. Resize the cropped image using the slider.
+        4. Apply filters like Monochrome, Warm, Cool, or Bright.
+        5. Use 'Zoom In' and 'Zoom Out' to adjust the view.
+        6. Save the edited image using the 'Save Image' button.
+        7. Use 'Undo' and 'Redo' to revert or reapply changes.
+        """
+        messagebox.showinfo("How-To Guide", instructions)
 
 if __name__ == "__main__":
     root = tk.Tk()
