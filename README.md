@@ -12,11 +12,45 @@ Submitted on 7 February 2025
 ##
 ### List of files
 #### Program files (code)
-Assign3.py
+QuikEdit.py
+
+#### Input files
+koala.jpg\
+gumtree.jpg
 
 #### Output files
-aa
+koala_cropped.png\
+koala_warm.png\
+koala_mono.png\
+gumtree_cropped.png\
+gumtree_cool.png\
+gumtree_mono.png
 
-#### Input files/Folder
-koala.jpg
-gumtree.jpg
+QuikEdit ~ How-To Guide
+=======================
+#### Workflow:
+~~~
+1. Load an image using Ctrl+L or File > Load Image
+2. Crop the image (Ctrl+C) by drawing a rectangle
+3. Resize using the slider (50%~200%)
+4. Apply filters using keyboard shortcuts/menu/buttons
+5. Use Zoom controls (Ctrl+↑/↓) to adjust view
+6. Save your work with Ctrl+S
+7. Use Undo/Redo (Ctrl+Z/Y) to correct mistakes
+~~~
+#### Keyboard shortcuts:
+~~~
+- Load Image: Ctrl+L
+- Save Image: Ctrl+S
+- Exit: Ctrl+Q
+- Crop Image: Ctrl+C
+- Undo: Ctrl+Z
+- Redo: Ctrl+Y
+- Monochrome: Ctrl+M
+- Warm: Ctrl+W
+- Cool: Ctrl+Shift+C
+- Bright: Ctrl+B
+- Zoom In: Ctrl+↑
+- Zoom Out: Ctrl+↓
+- How-To Guide: F1
+~~~
