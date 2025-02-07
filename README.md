@@ -1,6 +1,6 @@
 # HIT137-G21-Assign3
 
-## Group CAS/DAN 21 repository for assignment 3
+Group CAS/DAN 21 repository for assignment 3
 
 ### Contributors:
 Abu Saeed Md Shafiqur Rahman (Shafiq Rahman) - S386795 \
