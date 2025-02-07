@@ -28,7 +28,7 @@ class ImageEditorApp:
     def __init__(self, root):
         self.root = root
         self.root.title("QuikEdit ~ the fastest image editor")
-        self.root.geometry("1100x600")
+        self.root.geometry("1120x760")
 
         # Variables
         self.image = None
@@ -38,7 +38,70 @@ class ImageEditorApp:
         self.zoom_scale = 1.0  # For zoom functionality
 
         # GUI Components
+        self.create_menu()
         self.create_widgets()
+        self.bind_shortcuts()
+
+    def create_menu(self):
+        # Create a menu bar
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Load Image (Ctrl+L)", command=self.load_image)
+        file_menu.add_command(label="Save Image (Ctrl+S)", command=self.save_image)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit (Ctrl+Q)", command=self.root.quit)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        # Edit menu
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Crop Image (Ctrl+C)", command=self.start_crop)
+        edit_menu.add_command(label="Undo (Ctrl+Z)", command=self.undo)
+        edit_menu.add_command(label="Redo (Ctrl+Y)", command=self.redo)
+        menubar.add_cascade(label="Edit", menu=edit_menu)
+
+        # Filters menu
+        filter_menu = tk.Menu(menubar, tearoff=0)
+        filter_menu.add_command(label="Monochrome (Ctrl+M)", command=lambda: self.apply_filter("monochrome"))
+        filter_menu.add_command(label="Warm (Ctrl+W)", command=lambda: self.apply_filter("warm"))
+        filter_menu.add_command(label="Cool (Ctrl+Shift+C)", command=lambda: self.apply_filter("cool"))
+        filter_menu.add_command(label="Bright (Ctrl+B)", command=lambda: self.apply_filter("bright"))
+        menubar.add_cascade(label="Filters", menu=filter_menu)
+
+        # View menu
+        view_menu = tk.Menu(menubar, tearoff=0)
+        view_menu.add_command(label="Zoom In (Ctrl+↑)", command=self.zoom_in)
+        view_menu.add_command(label="Zoom Out (Ctrl+↓)", command=self.zoom_out)
+        menubar.add_cascade(label="View", menu=view_menu)
+
+        # Help menu
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="How-To Guide (F1)", command=self.show_how_to_guide)
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+    def bind_shortcuts(self):
+        # File operations
+        self.root.bind("<Control-l>", lambda event: self.load_image())
+        self.root.bind("<Control-s>", lambda event: self.save_image())
+        self.root.bind("<Control-q>", lambda event: self.root.quit())
+        
+        # Edit operations
+        self.root.bind("<Control-c>", lambda event: self.start_crop())
+        
+        # Filters
+        self.root.bind("<Control-m>", lambda event: self.apply_filter("monochrome"))
+        self.root.bind("<Control-w>", lambda event: self.apply_filter("warm"))
+        self.root.bind("<Control-Shift-C>", lambda event: self.apply_filter("cool"))
+        self.root.bind("<Control-b>", lambda event: self.apply_filter("bright"))
+        
+        # View
+        self.root.bind("<Control-Up>", lambda event: self.zoom_in())
+        self.root.bind("<Control-Down>", lambda event: self.zoom_out())
+        
+        # Help
+        self.root.bind("<F1>", lambda event: self.show_how_to_guide())
 
     def create_widgets(self):
         # Frame for image display
@@ -71,7 +134,7 @@ class ImageEditorApp:
         self.crop_button = tk.Button(self.control_frame, text="Crop Image", command=self.start_crop, **edit_button_style)
         self.crop_button.pack(side=tk.LEFT, padx=5)
 
-        self.resize_slider = tk.Scale(self.control_frame, from_=10, to=200, orient=tk.HORIZONTAL, label="Resize (%)", command=self.resize_image)
+        self.resize_slider = tk.Scale(self.control_frame, from_=50, to=200, orient=tk.HORIZONTAL, label="Resize (%)", command=self.resize_image, **edit_button_style)
         self.resize_slider.pack(side=tk.LEFT, padx=5)
 
         self.undo_button = tk.Button(self.control_frame, text="Undo", command=self.undo, **edit_button_style)
@@ -105,7 +168,7 @@ class ImageEditorApp:
         self.how_to_button.pack(side=tk.LEFT, padx=5)
 
         # Copyright info
-        self.copyright_label = tk.Label(self.root, text="© 2023 Image Editor. All rights reserved.", bg="lightgray")
+        self.copyright_label = tk.Label(self.root, text="© 2025 ShafiqSaeed & QuikEdit. All rights reserved.", bg="white")
         self.copyright_label.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Keyboard shortcuts
@@ -127,7 +190,7 @@ class ImageEditorApp:
         # Apply zoom
         width, height = image.size
         new_width, new_height = int(width * self.zoom_scale), int(height * self.zoom_scale)
-        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)  # Updated for Pillow 10+
+        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS) 
         self.tk_image = ImageTk.PhotoImage(image)
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_image)
 
@@ -207,11 +270,11 @@ class ImageEditorApp:
         if filter_type == "monochrome":
             filtered_image = cv2.cvtColor(self.cropped_image, cv2.COLOR_RGB2GRAY)
             filtered_image = cv2.cvtColor(filtered_image, cv2.COLOR_GRAY2RGB)
-        elif filter_type == "warm":
+        elif filter_type == "cool":
             filtered_image = self.cropped_image.copy()
             filtered_image[:, :, 0] = np.clip(filtered_image[:, :, 0] * 0.9, 0, 255)  # Reduce blue
             filtered_image[:, :, 2] = np.clip(filtered_image[:, :, 2] * 1.1, 0, 255)  # Increase red
-        elif filter_type == "cool":
+        elif filter_type == "warm":
             filtered_image = self.cropped_image.copy()
             filtered_image[:, :, 2] = np.clip(filtered_image[:, :, 2] * 0.9, 0, 255)  # Reduce red
             filtered_image[:, :, 0] = np.clip(filtered_image[:, :, 0] * 1.1, 0, 255)  # Increase blue
@@ -231,16 +294,38 @@ class ImageEditorApp:
 
     def show_how_to_guide(self):
         instructions = """
-        QuikEdit ~ How-To Guide:
-        1. Load an image using the 'Load Image' button.
-        2. Crop the image by clicking 'Crop Image' and drawing a rectangle.
-        3. Resize the cropped image using the slider.
-        4. Apply filters like Monochrome, Warm, Cool, or Bright.
-        5. Use 'Zoom In' and 'Zoom Out' to adjust the view.
-        6. Save the edited image using the 'Save Image' button.
-        7. Use 'Undo' and 'Redo' to revert or reapply changes.
+QuikEdit ~ How-To Guide
+=======================
+
+Workflow:
+~~~~~~~~
+1. Load an image using Ctrl+L or File > Load Image
+2. Crop the image (Ctrl+C) by drawing a rectangle
+3. Resize using the slider (50%~200%)
+4. Apply filters using keyboard shortcuts/menu/buttons
+5. Use Zoom controls (Ctrl+↑/↓) to adjust view
+6. Save your work with Ctrl+S
+7. Use Undo/Redo (Ctrl+Z/Y) to correct mistakes
+
+Keyboard shortcuts:
+~~~~~~~~~~~~~~~~~~
+- Load Image: Ctrl+L
+- Save Image: Ctrl+S
+- Exit: Ctrl+Q
+- Crop Image: Ctrl+C
+- Undo: Ctrl+Z
+- Redo: Ctrl+Y
+- Monochrome: Ctrl+M
+- Warm: Ctrl+W
+- Cool: Ctrl+Shift+C
+- Bright: Ctrl+B
+- Zoom In: Ctrl+↑
+- Zoom Out: Ctrl+↓
+- How-To Guide: F1
+
         """
         messagebox.showinfo("How-To Guide", instructions)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
