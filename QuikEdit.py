@@ -27,15 +27,15 @@ from PIL import Image, ImageTk, ImageOps
 class ImageEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("QuikEdit ~ the fastest image editor")
-        self.root.geometry("1120x760")
+        self.root.title("Image Editor")
+        self.root.geometry("1200x800")
 
         # Variables
-        self.image = None
-        self.cropped_image = None
-        self.edited_images = []  # For undo/redo functionality
+        self.original_image = None  # Stores the original loaded image
+        self.current_image = None   # Stores the currently displayed image (original, cropped, or filtered)
+        self.edited_images = []     # For undo/redo functionality
         self.current_image_index = -1
-        self.zoom_scale = 1.0  # For zoom functionality
+        self.zoom_scale = 1.0       # For zoom functionality
 
         # GUI Components
         self.create_menu()
@@ -109,7 +109,7 @@ class ImageEditorApp:
         self.image_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Canvas for displaying images
-        self.canvas = tk.Canvas(self.image_frame, bg="gray")
+        self.canvas = tk.Canvas(self.image_frame, bg="white")
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         # Frame for controls
@@ -134,7 +134,7 @@ class ImageEditorApp:
         self.crop_button = tk.Button(self.control_frame, text="Crop Image", command=self.start_crop, **edit_button_style)
         self.crop_button.pack(side=tk.LEFT, padx=5)
 
-        self.resize_slider = tk.Scale(self.control_frame, from_=50, to=200, orient=tk.HORIZONTAL, label="Resize (%)", command=self.resize_image, **edit_button_style)
+        self.resize_slider = tk.Scale(self.control_frame, from_=10, to=200, orient=tk.HORIZONTAL, label="Resize (%)", command=self.resize_image)
         self.resize_slider.pack(side=tk.LEFT, padx=5)
 
         self.undo_button = tk.Button(self.control_frame, text="Undo", command=self.undo, **edit_button_style)
@@ -168,20 +168,17 @@ class ImageEditorApp:
         self.how_to_button.pack(side=tk.LEFT, padx=5)
 
         # Copyright info
-        self.copyright_label = tk.Label(self.root, text="© 2025 ShafiqSaeed & QuikEdit. All rights reserved.", bg="white")
+        self.copyright_label = tk.Label(self.root, text="© 2023 Image Editor. All rights reserved.", bg="lightgray")
         self.copyright_label.pack(side=tk.BOTTOM, fill=tk.X)
-
-        # Keyboard shortcuts
-        self.root.bind("<Control-z>", lambda event: self.undo())
-        self.root.bind("<Control-y>", lambda event: self.redo())
 
     def load_image(self):
         file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg;*.jpeg;*.png;*.bmp")])
         if file_path:
-            self.image = cv2.imread(file_path)
-            self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)  # Convert to RGB
-            self.display_image(self.image)
-            self.edited_images = [self.image.copy()]
+            self.original_image = cv2.imread(file_path)
+            self.original_image = cv2.cvtColor(self.original_image, cv2.COLOR_BGR2RGB)  # Convert to RGB
+            self.current_image = self.original_image.copy()
+            self.display_image(self.current_image)
+            self.edited_images = [self.current_image.copy()]
             self.current_image_index = 0
 
     def display_image(self, image):
@@ -190,12 +187,12 @@ class ImageEditorApp:
         # Apply zoom
         width, height = image.size
         new_width, new_height = int(width * self.zoom_scale), int(height * self.zoom_scale)
-        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS) 
+        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)  # Updated for Pillow 10+
         self.tk_image = ImageTk.PhotoImage(image)
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_image)
 
     def start_crop(self):
-        if self.image is None:
+        if self.current_image is None:
             messagebox.showwarning("Warning", "Please load an image first!")
             return
 
@@ -217,7 +214,7 @@ class ImageEditorApp:
         self.crop_image()
 
     def crop_image(self):
-        if self.image is None:
+        if self.current_image is None:
             return
 
         # Get crop coordinates
@@ -225,27 +222,27 @@ class ImageEditorApp:
         x2, y2 = max(self.start_x, self.end_x), max(self.start_y, self.end_y)
 
         # Crop image
-        self.cropped_image = self.image[y1:y2, x1:x2]
-        self.display_image(self.cropped_image)
-        self.add_to_history(self.cropped_image)
+        self.current_image = self.current_image[y1:y2, x1:x2]
+        self.display_image(self.current_image)
+        self.add_to_history(self.current_image)
 
     def resize_image(self, value):
-        if self.cropped_image is None:
+        if self.current_image is None:
             return
 
         scale = int(value) / 100.0
-        resized_image = cv2.resize(self.cropped_image, None, fx=scale, fy=scale)
+        resized_image = cv2.resize(self.current_image, None, fx=scale, fy=scale)
         self.display_image(resized_image)
         self.add_to_history(resized_image)
 
     def save_image(self):
-        if self.cropped_image is None:
+        if self.current_image is None:
             messagebox.showwarning("Warning", "No image to save!")
             return
 
         file_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG Files", "*.png")])
         if file_path:
-            cv2.imwrite(file_path, cv2.cvtColor(self.cropped_image, cv2.COLOR_RGB2BGR))
+            cv2.imwrite(file_path, cv2.cvtColor(self.current_image, cv2.COLOR_RGB2BGR))
             messagebox.showinfo("Success", "Image saved successfully!")
 
     def add_to_history(self, image):
@@ -256,76 +253,82 @@ class ImageEditorApp:
     def undo(self):
         if self.current_image_index > 0:
             self.current_image_index -= 1
-            self.display_image(self.edited_images[self.current_image_index])
+            self.current_image = self.edited_images[self.current_image_index]
+            self.display_image(self.current_image)
 
     def redo(self):
         if self.current_image_index < len(self.edited_images) - 1:
             self.current_image_index += 1
-            self.display_image(self.edited_images[self.current_image_index])
+            self.current_image = self.edited_images[self.current_image_index]
+            self.display_image(self.current_image)
 
     def apply_filter(self, filter_type):
-        if self.cropped_image is None:
+        if self.current_image is None:
             return
 
         if filter_type == "monochrome":
-            filtered_image = cv2.cvtColor(self.cropped_image, cv2.COLOR_RGB2GRAY)
+            filtered_image = cv2.cvtColor(self.current_image, cv2.COLOR_RGB2GRAY)
             filtered_image = cv2.cvtColor(filtered_image, cv2.COLOR_GRAY2RGB)
-        elif filter_type == "cool":
-            filtered_image = self.cropped_image.copy()
+        elif filter_type == "warm":
+            filtered_image = self.current_image.copy()
             filtered_image[:, :, 0] = np.clip(filtered_image[:, :, 0] * 0.9, 0, 255)  # Reduce blue
             filtered_image[:, :, 2] = np.clip(filtered_image[:, :, 2] * 1.1, 0, 255)  # Increase red
-        elif filter_type == "warm":
-            filtered_image = self.cropped_image.copy()
+        elif filter_type == "cool":
+            filtered_image = self.current_image.copy()
             filtered_image[:, :, 2] = np.clip(filtered_image[:, :, 2] * 0.9, 0, 255)  # Reduce red
             filtered_image[:, :, 0] = np.clip(filtered_image[:, :, 0] * 1.1, 0, 255)  # Increase blue
         elif filter_type == "bright":
-            filtered_image = cv2.convertScaleAbs(self.cropped_image, alpha=1.2, beta=30)
+            filtered_image = cv2.convertScaleAbs(self.current_image, alpha=1.2, beta=30)
 
-        self.display_image(filtered_image)
-        self.add_to_history(filtered_image)
+        self.current_image = filtered_image
+        self.display_image(self.current_image)
+        self.add_to_history(self.current_image)
 
     def zoom_in(self):
         self.zoom_scale *= 1.2
-        self.display_image(self.cropped_image if self.cropped_image is not None else self.image)
+        self.display_image(self.current_image)
 
     def zoom_out(self):
         self.zoom_scale /= 1.2
-        self.display_image(self.cropped_image if self.cropped_image is not None else self.image)
+        self.display_image(self.current_image)
 
     def show_how_to_guide(self):
         instructions = """
-QuikEdit ~ How-To Guide
-=======================
+        How-To Guide & Keyboard Shortcuts:
+        
+        File Operations:
+        - Load Image: Ctrl+L
+        - Save Image: Ctrl+S
+        - Exit: Ctrl+Q
 
-Workflow:
-~~~~~~~~
-1. Load an image using Ctrl+L or File > Load Image
-2. Crop the image (Ctrl+C) by drawing a rectangle
-3. Resize using the slider (50%~200%)
-4. Apply filters using keyboard shortcuts/menu/buttons
-5. Use Zoom controls (Ctrl+↑/↓) to adjust view
-6. Save your work with Ctrl+S
-7. Use Undo/Redo (Ctrl+Z/Y) to correct mistakes
+        Edit Operations:
+        - Crop Image: Ctrl+C
+        - Undo: Ctrl+Z
+        - Redo: Ctrl+Y
 
-Keyboard shortcuts:
-~~~~~~~~~~~~~~~~~~
-- Load Image: Ctrl+L
-- Save Image: Ctrl+S
-- Exit: Ctrl+Q
-- Crop Image: Ctrl+C
-- Undo: Ctrl+Z
-- Redo: Ctrl+Y
-- Monochrome: Ctrl+M
-- Warm: Ctrl+W
-- Cool: Ctrl+Shift+C
-- Bright: Ctrl+B
-- Zoom In: Ctrl+↑
-- Zoom Out: Ctrl+↓
-- How-To Guide: F1
+        Filters:
+        - Monochrome: Ctrl+M
+        - Warm: Ctrl+W
+        - Cool: Ctrl+Shift+C
+        - Bright: Ctrl+B
 
+        View Controls:
+        - Zoom In: Ctrl+↑
+        - Zoom Out: Ctrl+↓
+
+        General:
+        - How-To Guide: F1
+
+        Workflow:
+        1. Load an image using Ctrl+L or File > Load Image
+        2. Crop the image (Ctrl+C) by drawing a rectangle
+        3. Resize using the slider
+        4. Apply filters using keyboard shortcuts or menu
+        5. Use Zoom controls (Ctrl+↑/↓) to adjust view
+        6. Save your work with Ctrl+S
+        7. Use Undo/Redo (Ctrl+Z/Y) to correct mistakes
         """
-        messagebox.showinfo("How-To Guide", instructions)
-
+        messagebox.showinfo("How-To Guide & Shortcuts", instructions)
 
 if __name__ == "__main__":
     root = tk.Tk()
